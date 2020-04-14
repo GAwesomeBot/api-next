@@ -62,3 +62,8 @@ docs
 \.idea/
 desktop.ini
 dist/
+
+
+#Added by cargo
+
+/target
