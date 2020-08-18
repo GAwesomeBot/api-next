@@ -4,8 +4,8 @@ use rocket::response::Redirect;
 use rocket_contrib::json::Json;
 
 use crate::lib::response::{Response, respond};
-use crate::lib::discord::{get_oauth_user, get_oauth_token};
-use crate::lib::auth::get_token;
+use crate::lib::discord::{get_oauth_user, get_oauth_token, get_oauth_guilds, PartialDiscordGuild};
+use crate::lib::auth::{encode_payload, decode_payload, ClaimsPayload};
 
 #[get("/login")]
 pub fn login() -> Redirect {
@@ -15,7 +15,24 @@ pub fn login() -> Redirect {
 #[get("/login/callback?<code>")]
 pub fn login_callback(code: String) -> Result<Json<Response<String>>, Box<dyn std::error::Error>> {
     let data = get_oauth_token(&code);
-    let user = get_oauth_user(&data?.access_token);
-    let token = get_token(&user?);
+    let access_token = data?.access_token;
+
+    let exp: u32 = 1687481604;
+
+    let user = get_oauth_user(&access_token)?;
+    let claims_payload = ClaimsPayload {
+        user,
+        at: access_token,
+        exp,
+    };
+
+    let token = encode_payload(&claims_payload);
     Ok(respond::<String>(Some(token), None))
+}
+
+#[get("/guilds?<token>")]
+pub fn guilds(token: String) -> Result<Json<Response<Vec<PartialDiscordGuild>>>, Box<dyn std::error::Error>> {
+    let claims = decode_payload(&token);
+    let guilds = get_oauth_guilds(&claims.at)?;
+    Ok(respond::<Vec<PartialDiscordGuild>>(Some(guilds), None))
 }
